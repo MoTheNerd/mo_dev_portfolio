@@ -1,0 +1,9 @@
+{
+  "name": "mo_dev_portfolio",
+  "version": "1.0.0",
+  "description": "portfolio microservice for mohammad.dev",
+  "main": "index.js",
+  "repository": "https://github.com/MoTheNerd/mo_dev_portfolio",
+  "author": "Mohammad Al-Ahdal <mo@mohammad.dev>",
+  "license": "MIT"
+}
