@@ -2,8 +2,28 @@
   "name": "mo_dev_portfolio",
   "version": "1.0.0",
   "description": "portfolio microservice for mohammad.dev",
-  "main": "index.js",
+  "main": "index.ts",
   "repository": "https://github.com/MoTheNerd/mo_dev_portfolio",
   "author": "Mohammad Al-Ahdal <mo@mohammad.dev>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.19.0",
+    "body-parser": "^1.19.0",
+    "dotenv": "^8.1.0",
+    "express": "^4.17.1",
+    "moment": "^2.24.0",
+    "mongodb": "^3.3.1",
+    "nodemon": "^1.19.1",
+    "typescript": "^3.5.3"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^4.17.1",
+    "@types/mongodb": "^3.3.0",
+    "@types/node": "^12.7.2"
+  },
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "start:dev": "nodemon -e ts --exec \"yarn start\""
+  }
 }
