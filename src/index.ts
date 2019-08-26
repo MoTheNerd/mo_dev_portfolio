@@ -23,17 +23,24 @@ require('mongodb').connect(mongocs, (err: MongoError, result: MongoClient) => {
 
 // get all posts
 app.get("/posts", async (req: express.Request, res: express.Response) => {
-    res.send(await db.collection('portfolio_posts').find({}).toArray())
+    let posts = await db.collection('portfolio_posts').find({}).toArray()
+    res.send(posts.map((post) => {
+        return {
+            postId: post._id,
+            ...post,
+            _id: undefined
+        }
+    }));
 });
 
 // get post in detail by ID
 app.get("/post/:postId", async (req: express.Request, res: express.Response) => {
-    let result = await db.collection('portfolio_posts').find({ postId: req.params.postId }).toArray()
+    let result = await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray()
     res.send(result[0])
 });
 
 const checkTokenAuthenticatedWithAuthServer = async (token: String) => {
-    let status = (await axios.post("/api/auth/authenticateUsingToken", { token })).data.code
+    let status = (await axios.post(`/api/auth/authenticateUsingToken`, { token })).data.code
     return status === 200 ? true : false
 }
 
@@ -80,12 +87,19 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
 app.put("/post/:postId", async (req: express.Request, res: express.Response) => {
     if (req.body.token) {
         if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
-            let initialPost = (await db.collection('portfolio_posts').find({ postId: req.params.postId }).toArray())[0]
-            await db.collection('portfolio_posts').updateOne({ postId: initialPost.postId }, { ...req.body.post })
-            res.send({
-                code: 200,
-                message: "success"
-            })
+            let initialPost = (await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray())[0]
+            if (initialPost) {
+                await db.collection('portfolio_posts').updateOne({ _id: initialPost.postId }, { ...req.body.post })
+                res.send({
+                    code: 200,
+                    message: "success"
+                })
+            } else {
+                res.send({
+                    code: 301,
+                    message: "you are not authenticated"
+                })
+            }
         } else {
             res.send({
                 code: 301,
