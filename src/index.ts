@@ -26,8 +26,8 @@ app.get("/posts", async (req: express.Request, res: express.Response) => {
     let posts = await db.collection('portfolio_posts').find({}).toArray()
     res.send(posts.map((post) => {
         return {
-            postId: post._id,
             ...post,
+            postId: post._id,
             _id: undefined
         }
     }));
@@ -54,6 +54,8 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
      * link
      * link text
      * picture uri
+     * date created
+     * date modified -> initially undefined
      */
     if (req.body.token) {
         if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
@@ -63,7 +65,8 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
                 long_description: req.body.post.long_description,
                 link: req.body.post.link,
                 link_text: req.body.post.link_text,
-                picture_uri: req.body.post.picture_uri
+                picture_uri: req.body.post.picture_uri,
+                date_created: moment.utc().toDate()
             })
             res.send({
                 code: 200,
@@ -89,7 +92,7 @@ app.put("/post/:postId", async (req: express.Request, res: express.Response) => 
         if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
             let initialPost = (await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray())[0]
             if (initialPost) {
-                await db.collection('portfolio_posts').updateOne({ _id: initialPost.postId }, { ...req.body.post })
+                await db.collection('portfolio_posts').updateOne({ _id: initialPost.postId }, { ...req.body.post, date_modified: moment.utc().toDate() })
                 res.send({
                     code: 200,
                     message: "success"
