@@ -21,6 +21,10 @@ require('mongodb').connect(mongocs, (err: MongoError, result: MongoClient) => {
     }
 })
 
+app.get("/", (req: express.Request, res: express.Response) => {
+    res.send("Portfolio MicroService API is running")
+})
+
 // get all posts
 app.get("/posts", async (req: express.Request, res: express.Response) => {
     let posts = await db.collection('portfolio_posts').find({}).toArray()
