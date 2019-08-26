@@ -1,3 +1,5 @@
+# mohammaddev/mo_dev_portfolio
+
 FROM node:12.8.0-alpine
 
 ENV COMPlus_EnabledDiagnostics=0
@@ -7,7 +9,6 @@ RUN apk update && apk upgrade \
     && apk add --no-cache git \
     && apk --no-cache add --virtual builds-deps build-base python
 
-ENV DEPLOY_TO_PROD YES
 ENV PORT 6002
 EXPOSE 6002
 
