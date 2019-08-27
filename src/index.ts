@@ -74,7 +74,7 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
     if (req.body.token) {
         if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
             let putObjReq: PutObjectRequest
-            var base64Data = req.body.data.replace(/^data:image\/png;base64,/, "").replace(/^data:image\/jpeg;base64,/, "");
+            var base64Data = req.body.post.imageData.replace(/^data:image\/png;base64,/, "").replace(/^data:image\/jpeg;base64,/, "");
             let filename = `portfolio_thumbnails/${crypto.randomBytes(2).toString('hex')}_${moment.utc().toISOString()}_${req.body.filename}`
             putObjReq = {
                 Bucket: 'modev',
