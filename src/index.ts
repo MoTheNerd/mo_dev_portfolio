@@ -3,7 +3,17 @@ import { Db, MongoError, MongoClient } from "mongodb";
 import express from 'express'
 import moment from 'moment'
 import bodyParser from 'body-parser'
+import crypto from 'crypto'
+import aws from 'aws-sdk'
+import { PutObjectRequest } from "aws-sdk/clients/s3";
+import { Buffer } from "buffer";
 import axios from 'axios'
+
+const s3 = new aws.S3({
+    endpoint: 'sfo2.digitaloceanspaces.com',
+    accessKeyId: process.env.MO_DEV_SPACE_KEY,
+    secretAccessKey: process.env.MO_DEV_SPACE_SECRET,
+});
 
 const mongocs = process.env.MONGO_CONNECTION_STRING;
 let db: Db;
@@ -63,18 +73,37 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
      */
     if (req.body.token) {
         if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
-            await db.collection('portfolio_posts').insertOne({
-                title: req.body.post.title,
-                short_description: req.body.post.short_description,
-                long_description: req.body.post.long_description,
-                link: req.body.post.link,
-                link_text: req.body.post.link_text,
-                picture_uri: req.body.post.picture_uri,
-                date_created: moment.utc().toDate()
-            })
-            res.send({
-                code: 200,
-                message: "success"
+            let putObjReq: PutObjectRequest
+            var base64Data = req.body.data.replace(/^data:image\/png;base64,/, "").replace(/^data:image\/jpeg;base64,/, "");
+            let filename = `portfolio_thumbnails/${crypto.randomBytes(2).toString('hex')}_${moment.utc().toISOString()}_${req.body.filename}`
+            putObjReq = {
+                Bucket: 'modev',
+                Key: `${filename}`,
+                Body: Buffer.from(base64Data, "base64"),
+                ACL: 'public-read',
+                ContentType: `image/${req.body.filename.split('.')[req.body.filename.split('.').length - 1].toLowerCase() === 'png' ? 'png' : 'jpeg'}`
+            }
+            await s3.upload(putObjReq, async (err, file) => {
+                if (err) {
+                    res.send({
+                        code: 500,
+                        message: "An internal server error occurred"
+                    })
+                } else {
+                    await db.collection('portfolio_posts').insertOne({
+                        title: req.body.post.title,
+                        short_description: req.body.post.short_description,
+                        long_description: req.body.post.long_description,
+                        link: req.body.post.link,
+                        link_text: req.body.post.link_text,
+                        picture_uri: `https://modev.sfo2.digitaloceanspaces.com/${filename}`,
+                        date_created: moment.utc().toDate()
+                    })
+                    res.send({
+                        code: 200,
+                        message: "success"
+                    })
+                }
             })
         } else {
             res.send({
