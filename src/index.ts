@@ -12,7 +12,7 @@ const app = express();
 
 app.use(bodyParser.json());
 
-require('mongodb').connect(mongocs, (err: MongoError, result: MongoClient) => {
+require('mongodb').connect(mongocs, { useNewUrlParser: true, useUnifiedTopology: true }, (err: MongoError, result: MongoClient) => {
     if (err) {
         console.log(err)
         process.exit(1);
