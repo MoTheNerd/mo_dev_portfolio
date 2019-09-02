@@ -1,6 +1,6 @@
 # mohammaddev/mo_dev_portfolio
 
-FROM node:12.8.0-alpine
+FROM node:12.9.1-alpine
 
 ENV COMPlus_EnabledDiagnostics=0
 WORKDIR /usr/share/mo_dev_portfolio
