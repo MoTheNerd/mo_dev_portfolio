@@ -81,7 +81,7 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
                 Key: `${filename}`,
                 Body: Buffer.from(base64Data, "base64"),
                 ACL: 'public-read',
-                ContentType: `image/${req.body.filename.split('.')[req.body.filename.split('.').length - 1].toLowerCase() === 'png' ? 'png' : 'jpeg'}`
+                ContentType: `image/${req.body.post.filename.split('.')[req.body.post.filename.split('.').length - 1].toLowerCase() === 'png' ? 'png' : 'jpeg'}`
             }
             await s3.upload(putObjReq, async (err, file) => {
                 if (err) {
