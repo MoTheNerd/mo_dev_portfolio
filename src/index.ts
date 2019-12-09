@@ -22,21 +22,25 @@ const app = express();
 
 app.use(bodyParser.json());
 
+const get = (path: string, ...rest : any[]) => app.get(`/portfolio${path}`, rest)
+const post = (path: string, ...rest : any[]) => app.post(`/portfolio${path}`, rest)
+const put = (path: string, ...rest : any[]) => app.put(`/portfolio${path}`, rest)
+
 require('mongodb').connect(mongocs, { useNewUrlParser: true, useUnifiedTopology: true }, (err: MongoError, result: MongoClient) => {
     if (err) {
         console.log(err)
         process.exit(1);
     } else {
-        db = result.db('default')
+        db = result.db('mw-default')
     }
 })
 
-app.get("/", (req: express.Request, res: express.Response) => {
+get("/", (req: express.Request, res: express.Response) => {
     res.send("Portfolio MicroService API is running")
 })
 
 // get all posts
-app.get("/posts", async (req: express.Request, res: express.Response) => {
+get("/posts", async (req: express.Request, res: express.Response) => {
     let posts = await db.collection('portfolio_posts').find({}).toArray()
     res.send(posts.map((post) => {
         return {
@@ -48,18 +52,18 @@ app.get("/posts", async (req: express.Request, res: express.Response) => {
 });
 
 // get post in detail by ID
-app.get("/post/:postId", async (req: express.Request, res: express.Response) => {
+get("/post/:postId", async (req: express.Request, res: express.Response) => {
     let result = await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray()
     res.send(result[0])
 });
 
 const checkTokenAuthenticatedWithAuthServer = async (token: String) => {
-    let status = (await axios.post(`/api/auth/authenticateUsingToken`, { token })).data.code
+    let status = (await axios.post(`/auth/authenticateUsingToken`, { token })).data.code
     return status === 200 ? true : false
 }
 
 // create a post
-app.post("/post", async (req: express.Request, res: express.Response) => {
+post("/post", async (req: express.Request, res: express.Response) => {
     /**
      * Posts have the following:
      * Title
@@ -120,7 +124,7 @@ app.post("/post", async (req: express.Request, res: express.Response) => {
 });
 
 // edit a post
-app.put("/post/:postId", async (req: express.Request, res: express.Response) => {
+put("/post/:postId", async (req: express.Request, res: express.Response) => {
     if (req.body.token) {
         if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
             let initialPost = (await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray())[0]
