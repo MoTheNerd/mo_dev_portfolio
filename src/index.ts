@@ -1,5 +1,4 @@
 require('dotenv').config();
-import { Db, MongoError, MongoClient } from "mongodb";
 import express from 'express'
 import moment from 'moment'
 import bodyParser from 'body-parser'
@@ -7,7 +6,9 @@ import crypto from 'crypto'
 import aws from 'aws-sdk'
 import { PutObjectRequest } from "aws-sdk/clients/s3";
 import { Buffer } from "buffer";
+import { exit } from 'process';
 import axios from 'axios'
+import {Connection, createConnection} from 'mysql2';
 
 const s3 = new aws.S3({
     endpoint: 'sfo2.digitaloceanspaces.com',
@@ -15,143 +16,41 @@ const s3 = new aws.S3({
     secretAccessKey: process.env.MO_DEV_SPACE_SECRET,
 });
 
-const mongocs = process.env.MONGO_CONNECTION_STRING;
-let db: Db;
+
+const mysqlcs = process.env.MYSQL_CONNECTION_STRING;
+const schema: "prod" | "dev" = process.env.MYSQL_SCHEMA === "prod" ? "prod" : "dev";
 const port = process.env.PORT ? process.env.PORT : 6002;
 const app = express();
+let dbConn: Connection;
+
+try {
+    dbConn = createConnection(mysqlcs!);
+} catch (error) {
+    console.error("There was no connection string specified for the sql server");
+    exit(-1);
+}
 
 app.use(bodyParser.json());
+app.use((req, res, next)=>{
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
-const get = (path: string, ...rest : any[]) => app.get(`/portfolio${path}`, rest)
-const post = (path: string, ...rest : any[]) => app.post(`/portfolio${path}`, rest)
-const put = (path: string, ...rest : any[]) => app.put(`/portfolio${path}`, rest)
-
-require('mongodb').connect(mongocs, { useNewUrlParser: true, useUnifiedTopology: true }, (err: MongoError, result: MongoClient) => {
-    if (err) {
-        console.log(err)
-        process.exit(1);
-    } else {
-        db = result.db('mw-default')
-    }
+    next();
 })
 
-get("/", (req: express.Request, res: express.Response) => {
+app.get("/", (req: express.Request, res: express.Response) => {
     res.send("Portfolio MicroService API is running")
 })
 
 // get all posts
-get("/posts", async (req: express.Request, res: express.Response) => {
-    let posts = await db.collection('portfolio_posts').find({}).toArray()
-    res.send(posts.map((post) => {
-        return {
-            ...post,
-            postId: post._id,
-            _id: undefined
-        }
-    }));
-});
-
-// get post in detail by ID
-get("/post/:postId", async (req: express.Request, res: express.Response) => {
-    let result = await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray()
-    res.send(result[0])
+app.get("/posts", async (req: express.Request, res: express.Response) => {
+    dbConn.query(`SELECT * FROM ${schema}.portfolio`, (a, b) => {
+        res.send(b);
+    })
 });
 
 const checkTokenAuthenticatedWithAuthServer = async (token: String) => {
     let status = (await axios.post(`/auth/authenticateUsingToken`, { token })).data.code
     return status === 200 ? true : false
 }
-
-// create a post
-post("/post", async (req: express.Request, res: express.Response) => {
-    /**
-     * Posts have the following:
-     * Title
-     * short description
-     * long description
-     * link
-     * link text
-     * picture uri
-     * date created
-     * date modified -> initially undefined
-     */
-    if (req.body.token) {
-        if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
-            let putObjReq: PutObjectRequest
-            var base64Data = req.body.post.imageData.replace(/^data:image\/png;base64,/, "").replace(/^data:image\/jpeg;base64,/, "");
-            let filename = `portfolio_thumbnails/${crypto.randomBytes(2).toString('hex')}_${moment.utc().toISOString()}_${req.body.post.filename}`
-            putObjReq = {
-                Bucket: 'modev',
-                Key: `${filename}`,
-                Body: Buffer.from(base64Data, "base64"),
-                ACL: 'public-read',
-                ContentType: `image/${req.body.post.filename.split('.')[req.body.post.filename.split('.').length - 1].toLowerCase() === 'png' ? 'png' : 'jpeg'}`
-            }
-            await s3.upload(putObjReq, async (err, file) => {
-                if (err) {
-                    res.send({
-                        code: 500,
-                        message: "An internal server error occurred"
-                    })
-                } else {
-                    await db.collection('portfolio_posts').insertOne({
-                        title: req.body.post.title,
-                        short_description: req.body.post.short_description,
-                        long_description: req.body.post.long_description,
-                        link: req.body.post.link,
-                        link_text: req.body.post.link_text,
-                        picture_uri: `https://modev.sfo2.digitaloceanspaces.com/${filename}`,
-                        date_created: moment.utc().toDate()
-                    })
-                    res.send({
-                        code: 200,
-                        message: "success"
-                    })
-                }
-            })
-        } else {
-            res.send({
-                code: 301,
-                message: "you are not authenticated"
-            })
-        }
-    } else {
-        res.send({
-            code: 301,
-            message: "you are not authenticated"
-        })
-    }
-});
-
-// edit a post
-put("/post/:postId", async (req: express.Request, res: express.Response) => {
-    if (req.body.token) {
-        if (await checkTokenAuthenticatedWithAuthServer(req.body.token)) {
-            let initialPost = (await db.collection('portfolio_posts').find({ _id: req.params.postId }).toArray())[0]
-            if (initialPost) {
-                await db.collection('portfolio_posts').updateOne({ _id: initialPost.postId }, { ...req.body.post, date_modified: moment.utc().toDate() })
-                res.send({
-                    code: 200,
-                    message: "success"
-                })
-            } else {
-                res.send({
-                    code: 301,
-                    message: "you are not authenticated"
-                })
-            }
-        } else {
-            res.send({
-                code: 301,
-                message: "you are not authenticated"
-            })
-        }
-    } else {
-        res.send({
-            code: 301,
-            message: "you are not authenticated"
-        })
-    }
-})
 
 app.listen(port, () => console.log(`Portfolio microservice listening on port: ${port}!`))
